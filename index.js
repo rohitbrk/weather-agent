@@ -4,9 +4,15 @@ import OpenAI from "openai";
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function getWeather(city) {
-  const geoRes = await fetch("https://wttr.in/banglore?format=j1");
+  const geoRes = await fetch(`https://wttr.in/${city}?format=j1`);
   const geoData = await geoRes.json();
-  return geoData;
+  return geoData.current_condition[0];
+}
+
+async function getTodos() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/todos?_limit=5");
+  const data = await res.json();
+  return data;
 }
 
 async function weatherAgent(query) {
@@ -15,7 +21,7 @@ async function weatherAgent(query) {
     messages: [
       {
         role: "system",
-        content: "Extract the city name from the user weather query.",
+        content: "Decide whether the user query is about weather or todos and call the correct tool.",
       },
       { role: "user", content: query },
     ],
@@ -34,16 +40,41 @@ async function weatherAgent(query) {
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "todos_intent",
+          description: "Fetch a list of fake todos",
+          parameters: {
+            type: "object",
+            properties: {},
+          },
+        },
+      },
     ],
-    tool_choice: { type: "function", function_name: "weather_intent" },
   });
 
   const toolCall = resp.choices[0].message.tool_calls?.[0];
-  const args = JSON.parse(toolCall.function.arguments);
-  const city = args.city;
 
-  const summary = await getWeather(city);
-  console.log(`\nQuery: ${query}\n📍 City: ${city}\n${summary}\n`);
+  if (!toolCall) {
+    console.log("🤔 No tool call made by the model.");
+    return;
+  }
+
+  const fnName = toolCall.function.name;
+  const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+
+  let result;
+
+  if (fnName === "weather_intent") {
+    const city = args.city;
+    result = await getWeather(city);
+    console.log(`Weather in ${city}:`, result);
+  } else if (fnName === "todos_intent") {
+    result = await getTodos();
+    console.log("Fake Todos:", result);
+  }
 }
 
-weatherAgent("what is weather in Banglore");
+weatherAgent("what is the weather in Banglore");
+weatherAgent("show me some todos");
