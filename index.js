@@ -42,7 +42,7 @@ async function weatherAgent(query) {
   const args = JSON.parse(toolCall.function.arguments);
   const city = args.city;
 
-  const summary = await getWeather("Banglore");
+  const summary = await getWeather(city);
   console.log(`\nQuery: ${query}\n📍 City: ${city}\n${summary}\n`);
 }
 
